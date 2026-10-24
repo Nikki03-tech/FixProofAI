@@ -1,14 +1,11 @@
-import json
 
-from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
+import json
+import os
+
+import httpx
 from pydantic import ValidationError
 
-from Backend.config import (
-    BHARATCODE_API_KEY,
-    BHARATCODE_BASE_URL,
-    BHARATCODE_MODEL,
-    REQUEST_TIMEOUT,
-)
+from Backend.config import REQUEST_TIMEOUT
 from Backend.schemas import AnalysisResponse
 from Backend.services.prompt_service import build_analysis_prompt
 
@@ -23,18 +20,13 @@ def analyze_code(
     explanation_level: str = "beginner",
     include_tests: bool = True,
 ) -> AnalysisResponse:
-    if not BHARATCODE_API_KEY:
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+
+    if not api_key:
         raise AIServiceError(
-            "The AI service is not configured. Add BHARATCODE_API_KEY "
+            "Gemini is not configured. Add GEMINI_API_KEY "
             "to the backend environment variables."
         )
-
-    client = OpenAI(
-        api_key=BHARATCODE_API_KEY,
-        base_url=BHARATCODE_BASE_URL,
-        timeout=REQUEST_TIMEOUT,
-        max_retries=1,
-    )
 
     prompt = build_analysis_prompt(
         code=code,
@@ -43,26 +35,70 @@ def analyze_code(
         include_tests=include_tests,
     )
 
-    try:
-        completion = client.chat.completions.create(
-            model=BHARATCODE_MODEL,
-            messages=[
+    url = (
+        "https://generativelanguage.googleapis.com/"
+        "v1beta/models/gemini-2.5-flash:generateContent"
+    )
+
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": api_key,
+    }
+
+    body = {
+        "systemInstruction": {
+            "parts": [
                 {
-                    "role": "system",
-                    "content": (
-                        "You are FixProof AI. Return only a valid JSON object "
-                        "matching the requested schema. Never claim code was run."
-                    ),
-                },
-                {"role": "user", "content": prompt},
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.2,
+                    "text": (
+                        "You are FixProof AI, an expert code debugging assistant. "
+                        "Return only a valid JSON object matching the requested "
+                        "schema. Never claim code was executed or tested."
+                    )
+                }
+            ]
+        },
+        "contents": [
+            {
+                "role": "user",
+                "parts": [{"text": prompt}],
+            }
+        ],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "temperature": 0.2,
+        },
+    }
+
+    try:
+        response = httpx.post(
+            url,
+            headers=headers,
+            json=body,
+            timeout=REQUEST_TIMEOUT,
         )
 
-        content = completion.choices[0].message.content
-        if not content:
-            raise AIServiceError("The AI service returned an empty response.")
+        if response.is_error:
+            raise AIServiceError(
+                f"Gemini returned an error (HTTP {response.status_code}). "
+                "Please check the API key, model availability, and free-tier quota."
+            )
+
+        data = response.json()
+        candidates = data.get("candidates", [])
+
+        if not candidates:
+            raise AIServiceError(
+                "Gemini returned no analysis. Please try again with different code."
+            )
+
+        parts = candidates[0].get("content", {}).get("parts", [])
+        content = "".join(
+            part.get("text", "") for part in parts
+            if isinstance(part.get("text"), str)
+        )
+
+        if not content.strip():
+            raise AIServiceError("Gemini returned an empty response.")
 
         payload = json.loads(content)
         result = AnalysisResponse.model_validate(payload)
@@ -72,16 +108,17 @@ def analyze_code(
 
         return result
 
-    except (APIConnectionError, APITimeoutError) as exc:
+    except AIServiceError:
+        raise
+    except httpx.TimeoutException as exc:
         raise AIServiceError(
-            "Could not connect to the AI service. Please try again."
+            "Gemini took too long to respond. Please try again."
         ) from exc
-    except APIStatusError as exc:
+    except httpx.RequestError as exc:
         raise AIServiceError(
-            f"The AI service returned an error (HTTP {exc.status_code})."
+            "Could not connect to Gemini. Please try again."
         ) from exc
-    except (json.JSONDecodeError, ValidationError, IndexError, AttributeError) as exc:
+    except (json.JSONDecodeError, ValidationError, KeyError, TypeError, ValueError) as exc:
         raise AIServiceError(
-            "The AI service returned an invalid analysis. Please try again."
+            "Gemini returned an invalid analysis. Please try again."
         ) from exc
-
