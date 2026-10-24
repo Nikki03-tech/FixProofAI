@@ -1,4 +1,4 @@
-import { Bug, ShieldCheck, Sparkles } from "lucide-react";
+import { ShieldCheck, Sparkles } from "lucide-react";
 
 export default function Header() {
   return (
