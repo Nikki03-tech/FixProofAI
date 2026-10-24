@@ -1,13 +1,12 @@
 
 import json
 import logging
-import os
 import time
 
 import httpx
 from pydantic import ValidationError
 
-from Backend.config import REQUEST_TIMEOUT
+from Backend.config import GEMINI_API_KEY, GEMINI_MODEL, REQUEST_TIMEOUT
 from Backend.schemas import AnalysisResponse
 from Backend.services.prompt_service import build_analysis_prompt
 
@@ -24,7 +23,7 @@ def analyze_code(
     explanation_level: str = "beginner",
     include_tests: bool = True,
 ) -> AnalysisResponse:
-    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    api_key = GEMINI_API_KEY.strip()
 
     if not api_key:
         raise AIServiceError(
@@ -41,7 +40,7 @@ def analyze_code(
 
     url = (
         "https://generativelanguage.googleapis.com/"
-        "v1beta/models/gemini-3.8-flash:generateContent"
+        f"v1beta/models/{GEMINI_MODEL}:generateContent"
     )
 
     headers = {
@@ -51,15 +50,13 @@ def analyze_code(
 
     body = {
         "systemInstruction": {
-            "parts": [
-                {
-                    "text": (
-                        "You are FixProof AI, an expert code debugging assistant. "
-                        "Return only a valid JSON object matching the requested "
-                        "schema. Never claim code was executed or tested."
-                    )
-                }
-            ]
+            "parts": [{
+                "text": (
+                    "You are FixProof AI, an expert code debugging assistant. "
+                    "Return only a valid JSON object matching the requested "
+                    "schema. Never claim code was executed or tested."
+                )
+            }]
         },
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {
@@ -75,22 +72,21 @@ def analyze_code(
             response = client.post(url, headers=headers, json=body)
 
         elapsed = round(time.monotonic() - started, 2)
-        logger.info("Gemini HTTP status=%s elapsed_seconds=%s",
-                    response.status_code, elapsed)
+        logger.info(
+            "Gemini model=%s HTTP status=%s elapsed_seconds=%s",
+            GEMINI_MODEL, response.status_code, elapsed,
+        )
 
         if response.is_error:
-            # Log only a short, sanitized error body; never log headers or API keys.
             try:
                 error_data = response.json().get("error", {})
                 error_code = error_data.get("status", "UNKNOWN")
-                error_message = str(error_data.get("message", "No details"))[:300]
             except (ValueError, AttributeError):
                 error_code = "UNKNOWN"
-                error_message = "Response was not valid JSON"
 
             logger.error(
-                "Gemini API error: http=%s code=%s message=%s",
-                response.status_code, error_code, error_message,
+                "Gemini API error: http=%s code=%s",
+                response.status_code, error_code,
             )
             raise AIServiceError(
                 f"Gemini API returned HTTP {response.status_code} "
@@ -101,8 +97,6 @@ def analyze_code(
         candidates = data.get("candidates", [])
 
         if not candidates:
-            logger.warning("Gemini returned no candidates; elapsed_seconds=%s",
-                           elapsed)
             raise AIServiceError(
                 "Gemini returned no analysis. Please try again."
             )
@@ -115,8 +109,6 @@ def analyze_code(
         )
 
         if not content.strip():
-            logger.warning("Gemini returned empty content; elapsed_seconds=%s",
-                           elapsed)
             raise AIServiceError("Gemini returned an empty response.")
 
         payload = json.loads(content)
@@ -135,14 +127,20 @@ def analyze_code(
         logger.error("Gemini request timed out after %s seconds", elapsed)
         raise AIServiceError(
             f"Gemini timed out after {elapsed} seconds. "
-            "Check the backend logs for the request duration."
+            "Please try again with a smaller code sample."
         ) from exc
     except httpx.RequestError as exc:
         logger.error("Gemini connection error: %s", type(exc).__name__)
         raise AIServiceError(
             "Could not connect to Gemini. Please try again."
         ) from exc
-    except (json.JSONDecodeError, ValidationError, KeyError, TypeError, ValueError) as exc:
+    except (
+        json.JSONDecodeError,
+        ValidationError,
+        KeyError,
+        TypeError,
+        ValueError,
+    ) as exc:
         logger.error("Invalid Gemini response: %s", type(exc).__name__)
         raise AIServiceError(
             "Gemini returned an invalid analysis. Please try again."
