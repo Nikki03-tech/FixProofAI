@@ -62,7 +62,7 @@ export async function downloadReport(
 ): Promise<string> {
   const response = await request<{ report: string }>("/api/report", {
     method: "POST",
-    body: JSON.stringify([payload, result]),
+    body: JSON.stringify({ request: payload, result }),
   });
 
   return response.report;
