@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from Backend.config import (
     APP_NAME,
@@ -31,6 +32,11 @@ app.add_middleware(
 )
 
 
+class ReportRequest(BaseModel):
+    request: AnalysisRequest
+    result: AnalysisResponse
+
+
 @app.get("/health", response_model=HealthResponse)
 def health_check() -> HealthResponse:
     return HealthResponse(
@@ -60,13 +66,10 @@ def analyze(request: AnalysisRequest) -> AnalysisResponse:
 
 
 @app.post("/api/report")
-def create_report(
-    request: AnalysisRequest,
-    result: AnalysisResponse,
-) -> dict[str, str]:
+def create_report(body: ReportRequest) -> dict[str, str]:
     report = generate_markdown_report(
-        result=result,
-        language=request.language,
-        explanation_level=request.explanation_level,
+        result=body.result,
+        language=body.request.language,
+        explanation_level=body.request.explanation_level,
     )
     return {"report": report}
