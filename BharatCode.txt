@@ -1,0 +1,13 @@
+FixProof AI
+
+An AI-powered debugging assistant built for BharatCode Build League.
+
+Features:
+- Explain Python and JavaScript errors in simple language.
+- Identify likely root causes.
+- Suggest corrected code.
+- Generate test cases to help verify fixes.
+
+Powered by the BharatCode API.
+
+Security: API credentials must be stored securely on the server and must never be committed to the public repository.
