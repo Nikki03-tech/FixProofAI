@@ -1,28 +1,37 @@
+Project Name:
+FixProof AI
 
-Project Name: FixProof AI
-
-Project Description:
-FixProof AI is an AI-powered debugging assistant that helps developers understand programming errors, investigate likely root causes, review suggested fixes, and generate test cases and testing plans.
+Current Project Description:
+FixProof AI is an AI-assisted debugging application for Python and JavaScript. The current application uses a React and TypeScript frontend, a FastAPI backend, and the Google Gemini API to explain likely errors, identify root causes, suggest fixes, and generate test guidance.
 
 Problem:
 Developers, especially beginners, often struggle to understand error messages and identify reliable fixes.
 
-Solution:
-FixProof AI uses the BharatCode API to analyze submitted Python or JavaScript code and error descriptions, then provides explanations, proposed fixes, and testing guidance.
+Current Solution:
+The current deployed application sends submitted code and optional error context from the frontend to the FastAPI backend. The backend calls the Gemini API and returns a structured debugging analysis. Submitted code is analyzed as text and is not executed by the service.
 
-Technology Stack:
-Python, Streamlit, OpenAI Python SDK, BharatCode API, Qwen 3.8 27B.
+Current Technology Stack:
+- React
+- TypeScript
+- Vite
+- Python
+- FastAPI
+- Pydantic
+- HTTPX
+- Google Gemini API (default model: gemini-3.5-flash-lite)
+- Render
 
 Core Features:
 1. Error explanation in beginner-friendly language.
 2. Likely root-cause analysis.
-3. Suggested corrected code.
-4. Test-case generation and testing plans.
+3. Suggested code improvements.
+4. Test-case generation and testing guidance.
 5. Python and JavaScript support.
 6. Adjustable explanation depth.
+7. Markdown debugging report generation.
 
 Responsible AI:
-The tool provides AI-generated suggestions that may be incorrect. Users should review proposed fixes and test them safely before using them in production. The application is designed to keep API credentials out of public source code.
+The tool provides AI-generated suggestions that may be incorrect. Users should review proposed fixes and test them safely before using them in production. The backend does not execute submitted code. Users should not submit passwords, API keys, access tokens, or private data in code samples.
 
-Hackathon:
-BharatCode Build League 2026
+Original Hackathon Prototype:
+FixProof AI was originally developed for the BharatCode Build League 2026 using Streamlit, the OpenAI Python SDK, and the BharatCode API (Qwen 3.8 27B). The original prototype remains in the root-level `app.py` and root `requirements.txt` as legacy code. It is not used by the current Gemini-powered Render deployment.
