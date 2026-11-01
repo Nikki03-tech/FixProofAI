@@ -1,7 +1,15 @@
 
 import os
+
+import httpx
 import streamlit as st
-from openai import OpenAI
+
+
+GEMINI_API_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
+DEFAULT_GEMINI_MODEL = os.getenv(
+    "GEMINI_MODEL",
+    "gemini-3.5-flash-lite",
+).strip() or "gemini-3.5-flash-lite"
 
 st.set_page_config(
     page_title="FixProof AI",
@@ -96,18 +104,59 @@ div.stButton > button[kind="primary"] {
 
 
 def get_api_key():
-    """Read the API key from a server environment variable or Streamlit secret."""
-    key = os.getenv("BHARATCODE_API_KEY", "").strip()
+    """Read the Gemini key from an environment variable or Streamlit secret."""
+    key = os.getenv("GEMINI_API_KEY", "").strip()
 
     if key:
         return key
 
     try:
-        return str(
-            st.secrets.get("BHARATCODE_API_KEY", "")
-        ).strip()
+        return str(st.secrets.get("GEMINI_API_KEY", "")).strip()
     except Exception:
         return ""
+
+
+def generate_gemini_response(api_key, model, system_prompt, user_prompt):
+    """Send a debugging prompt to Gemini and return the generated text."""
+    response = httpx.post(
+        f"{GEMINI_API_BASE_URL}/{model}:generateContent",
+        headers={
+            "Content-Type": "application/json",
+            "x-goog-api-key": api_key,
+        },
+        json={
+            "systemInstruction": {
+                "parts": [{"text": system_prompt}],
+            },
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": user_prompt}],
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.2,
+            },
+        },
+        timeout=60.0,
+    )
+    response.raise_for_status()
+
+    data = response.json()
+    candidates = data.get("candidates", [])
+    if not candidates:
+        raise ValueError("Gemini returned no response candidate.")
+
+    parts = candidates[0].get("content", {}).get("parts", [])
+    answer = "".join(
+        part.get("text", "")
+        for part in parts
+        if isinstance(part.get("text"), str)
+    )
+    if not answer.strip():
+        raise ValueError("Gemini returned an empty response.")
+
+    return answer
 
 
 with st.sidebar:
@@ -120,10 +169,10 @@ with st.sidebar:
         ["Python", "JavaScript"],
     )
 
-    model = st.selectbox(
-        "BharatCode model",
-        ["qwen-3.8-27b"],
-    )
+    model = st.text_input(
+        "Gemini model",
+        value=DEFAULT_GEMINI_MODEL,
+    ).strip() or DEFAULT_GEMINI_MODEL
 
     depth = st.select_slider(
         "Explanation detail",
@@ -151,7 +200,7 @@ with st.sidebar:
 st.markdown("""
 <div class="hero">
     <div class="eyebrow">
-        AI debugging partner · BharatCode API
+        AI debugging partner · Powered by Gemini
     </div>
     <div class="hero-title">
         Find the bug.<br>Understand the fix.
@@ -272,8 +321,8 @@ if analyse:
 
         if not api_key:
             st.error(
-                "The BharatCode API key is not configured yet. "
-                "We will add it securely in the deployment settings."
+                "The Gemini API key is not configured. "
+                "Add GEMINI_API_KEY to your environment or Streamlit secrets."
             )
 
         else:
@@ -324,35 +373,18 @@ if analyse:
                 "Tracing the likely cause and preparing a fix..."
             ):
                 try:
-                    client = OpenAI(
+                    answer = generate_gemini_response(
                         api_key=api_key,
-                        base_url="https://bharatcode.ai/api/model/v1",
-                        timeout=60.0,
-                        max_retries=1,
-                    )
-
-                    response = client.chat.completions.create(
                         model=model,
-                        messages=[
-                            {
-                                "role": "system",
-                                "content": system_prompt,
-                            },
-                            {
-                                "role": "user",
-                                "content": user_prompt,
-                            },
-                        ],
-                        temperature=0.2,
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt,
                     )
-
-                    answer = response.choices[0].message.content
 
                     st.divider()
                     st.markdown("## 03 · Analysis results")
 
                     st.caption(
-                        f"Language: {language} · Model: {model}"
+                        f"Language: {language} · Provider: Gemini · Model: {model}"
                     )
 
                     if answer:
@@ -372,8 +404,8 @@ if analyse:
 
                 except Exception as exc:
                     st.error(
-                        "The BharatCode request failed. Check your "
-                        "API key, model access, and API endpoint."
+                        "The Gemini request failed. Check your API key, "
+                        "model access, quota, and connection."
                     )
                     st.caption(
                         f"Error type: {type(exc).__name__}. "
