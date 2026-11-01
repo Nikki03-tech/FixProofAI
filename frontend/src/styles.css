@@ -118,19 +118,39 @@ a {
   align-items: center;
   gap: 8px;
   padding: 9px 13px;
-  color: #387d66;
-  background: #effbf6;
-  border: 1px solid #d9f3e7;
+  color: #6656a8;
+  background: #f3f0ff;
+  border: 1px solid #e4defe;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
+}
+
+.header-status--online {
+  color: #387d66;
+  background: #effbf6;
+  border-color: #d9f3e7;
+}
+
+.header-status--offline {
+  color: #a34d4d;
+  background: #fff2f2;
+  border-color: #f5dddd;
 }
 
 .status-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
+  background: #9587d5;
+}
+
+.header-status--online .status-dot {
   background: #36b78c;
+}
+
+.header-status--offline .status-dot {
+  background: #d96b6b;
 }
 
 .main-content {

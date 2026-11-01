@@ -4,6 +4,7 @@ from time import monotonic
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from Backend.config import (
@@ -42,8 +43,7 @@ class ReportRequest(BaseModel):
 
 
 # Lightweight per-process fixed-window limiter. This protects a single
-# Render instance; use a shared store such as Redis if running multiple
-# instances or needing limits that survive restarts.
+# Render instance; use a shared store such as Redis for multiple instances.
 _rate_limit_lock = Lock()
 _rate_limit_buckets: dict[str, tuple[float, int]] = {}
 _RATE_LIMIT_WINDOW_SECONDS = 60
@@ -56,16 +56,12 @@ def _client_key(request: Request) -> str:
 
 
 @app.middleware("http")
-async def limit_analysis_requests(
-    request: Request,
-    call_next: Callable,
-):
+async def limit_analysis_requests(request: Request, call_next: Callable):
     if request.method == "POST" and request.url.path == "/api/analyze":
         now = monotonic()
         client_key = _client_key(request)
 
         with _rate_limit_lock:
-            # Remove expired buckets so the dictionary does not grow forever.
             expired = [
                 key for key, (started, _) in _rate_limit_buckets.items()
                 if now - started >= _RATE_LIMIT_WINDOW_SECONDS
@@ -81,30 +77,25 @@ async def limit_analysis_requests(
                 retry_after = max(
                     1, int(_RATE_LIMIT_WINDOW_SECONDS - (now - started))
                 )
-                return HTTPExceptionResponse(retry_after)
+                return JSONResponse(
+                    status_code=429,
+                    content={
+                        "detail": (
+                            "Analysis rate limit reached. "
+                            "Please try again shortly."
+                        )
+                    },
+                    headers={"Retry-After": str(retry_after)},
+                )
 
             _rate_limit_buckets[client_key] = (started, count + 1)
 
     return await call_next(request)
 
 
-async def HTTPExceptionResponse(retry_after: int):
-    from fastapi.responses import JSONResponse
-
-    return JSONResponse(
-        status_code=429,
-        content={"detail": "Analysis rate limit reached. Please try again shortly."},
-        headers={"Retry-After": str(retry_after)},
-    )
-
-
 @app.get("/health", response_model=HealthResponse)
 def health_check() -> HealthResponse:
-    return HealthResponse(
-        status="ok",
-        app=APP_NAME,
-        version=APP_VERSION,
-    )
+    return HealthResponse(status="ok", app=APP_NAME, version=APP_VERSION)
 
 
 @app.post("/api/analyze", response_model=AnalysisResponse)

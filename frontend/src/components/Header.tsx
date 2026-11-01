@@ -1,6 +1,16 @@
 import { ShieldCheck, Sparkles } from "lucide-react";
 
-export default function Header() {
+interface HeaderProps {
+  apiStatus: "checking" | "online" | "offline";
+}
+
+export default function Header({ apiStatus }: HeaderProps) {
+  const statusLabel = {
+    checking: "Checking API",
+    online: "API online",
+    offline: "API unavailable",
+  }[apiStatus];
+
   return (
     <header className="site-header">
       <a className="brand" href="/" aria-label="FixProof AI home">
@@ -15,9 +25,13 @@ export default function Header() {
         </span>
       </a>
 
-      <div className="header-status">
+      <div
+        className={`header-status header-status--${apiStatus}`}
+        role="status"
+        aria-live="polite"
+      >
         <span className="status-dot" />
-        <span>AI debugging assistant</span>
+        <span>{statusLabel}</span>
         <Sparkles size={16} />
       </div>
     </header>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowDown,
   Code2,
@@ -14,7 +14,7 @@ import LoadingState from "./components/LoadingState";
 import AnalysisPanel from "./components/AnalysisPanel";
 import ReportPanel from "./components/ReportPanel";
 
-import { analyzeCode, downloadReport } from "./services/api";
+import { analyzeCode, checkHealth, downloadReport } from "./services/api";
 
 import type {
   AnalysisRequest,
@@ -40,6 +40,32 @@ export default function App() {
   const [lastRequest, setLastRequest] = useState<AnalysisRequest | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [apiStatus, setApiStatus] = useState<"checking" | "online" | "offline">(
+    "checking"
+  );
+
+  useEffect(() => {
+    let active = true;
+
+    const refreshHealth = async () => {
+      try {
+        const health = await checkHealth();
+        if (active) {
+          setApiStatus(health.status === "ok" ? "online" : "offline");
+        }
+      } catch {
+        if (active) setApiStatus("offline");
+      }
+    };
+
+    void refreshHealth();
+    const intervalId = window.setInterval(refreshHealth, 30000);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   async function handleAnalyze() {
     if (!code.trim()) {
@@ -96,7 +122,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Header />
+      <Header apiStatus={apiStatus} />
 
       <main className="main-content">
         <section className="hero-section">
