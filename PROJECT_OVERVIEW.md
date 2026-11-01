@@ -44,7 +44,3 @@ FixProof AI analyzes submitted code and error descriptions as text, then provide
 ## Responsible AI
 
 AI suggestions may be incorrect. Review proposed fixes and test them safely before using them in production. Never submit passwords, API keys, access tokens, or private data in code samples.
-
-## Project origin
-
-Originally developed for the BharatCode Build League 2026. The current application uses Gemini as its AI provider.

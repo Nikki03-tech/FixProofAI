@@ -147,7 +147,3 @@ The unit tests do not require a live Gemini API key.
 - Never submit passwords, API keys, access tokens, private customer data, or other secrets in a code sample.
 - AI output is a suggestion, not proof that a fix is correct. Review proposed changes and run tests in a safe environment before using them.
 - Keep `GEMINI_API_KEY` in backend environment variables or local ignored secrets. Never place it in a `VITE_*` variable or commit it to GitHub.
-
----
-
-Originally developed for the BharatCode Build League 2026.
