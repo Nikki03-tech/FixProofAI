@@ -1,4 +1,3 @@
-
 import os
 
 from dotenv import load_dotenv
@@ -16,5 +15,18 @@ FRONTEND_ORIGIN = os.getenv(
     "http://localhost:5173",
 )
 
-MAX_CODE_LENGTH = int(os.getenv("MAX_CODE_LENGTH", "20000"))
-REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "90"))
+
+def _positive_int_env(name: str, default: int) -> int:
+    """Read a positive integer environment variable with a safe fallback."""
+    try:
+        value = int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+MAX_CODE_LENGTH = _positive_int_env("MAX_CODE_LENGTH", 20000)
+REQUEST_TIMEOUT = _positive_int_env("REQUEST_TIMEOUT", 90)
+ANALYZE_RATE_LIMIT_PER_MINUTE = _positive_int_env(
+    "ANALYZE_RATE_LIMIT_PER_MINUTE", 5
+)

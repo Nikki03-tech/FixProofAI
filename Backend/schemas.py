@@ -1,6 +1,8 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+from Backend.config import MAX_CODE_LENGTH
 
 
 SupportedLanguage = Literal["python", "javascript"]
@@ -13,8 +15,11 @@ class AnalysisRequest(BaseModel):
     code: str = Field(
         ...,
         min_length=1,
-        max_length=20000,
-        description="Source code to analyze. The backend will not execute it.",
+        max_length=MAX_CODE_LENGTH,
+        description=(
+            "Source code to analyze. The backend will not execute it. "
+            f"Maximum length: {MAX_CODE_LENGTH} characters."
+        ),
     )
     language: SupportedLanguage
     explanation_level: ExplanationLevel = "beginner"
