@@ -385,7 +385,7 @@ st.divider()
 
 st.markdown(
     "<div style='text-align:center;color:#7b879a;font-size:.85rem'>"
-    "Built for BharatCode Build League · "
+    "Powered by Gemini · "
     "AI suggestions require human review"
     "</div>",
     unsafe_allow_html=True,
