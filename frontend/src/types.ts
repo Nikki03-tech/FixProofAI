@@ -4,9 +4,18 @@ export interface AnalysisRequest { code: string; language: SupportedLanguage; ex
 export interface SuggestedFix { title: string; explanation: string; code: string; }
 export interface TestSuggestion { description: string; test_code: string; }
 export interface AnalysisResponse {
-  success: boolean; summary: string; issues: string[]; root_cause: string;
+  success: boolean;
+  summary: string;
+  issues: string[];
+  root_cause: string;
   severity: "critical" | "high" | "medium" | "low" | "none";
-  confidence: number; verification_steps: string[];
-  suggested_fixes: SuggestedFix[]; tests: TestSuggestion[]; limitations: string[];
+  confidence: number;
+  verification_steps: string[];
+  selected_language?: SupportedLanguage | null;
+  detected_language?: SupportedLanguage | null;
+  language_mismatch?: boolean;
+  suggested_fixes: SuggestedFix[];
+  tests: TestSuggestion[];
+  limitations: string[];
 }
 export interface HealthResponse { status: string; app: string; version: string; }
