@@ -10,7 +10,8 @@ const languageName = (language: SupportedLanguage) =>
   language === "python" ? "Python" : "JavaScript";
 
 export default function AnalysisPanel({ result, onSelectLanguage }: AnalysisPanelProps) {
-  const hasMismatch = result.language_mismatch && result.detected_language;
+  const mismatchLanguage =
+    result.language_mismatch === true ? result.detected_language ?? null : null;
 
   return (
     <section className="panel analysis-panel">
@@ -23,22 +24,22 @@ export default function AnalysisPanel({ result, onSelectLanguage }: AnalysisPane
         </span>
       </div>
 
-      {hasMismatch && (
+      {mismatchLanguage && (
         <div className="language-warning" role="alert">
           <div className="language-warning-copy">
             <strong>Language mismatch detected</strong>
             <p>
               You selected {languageName(result.selected_language ?? "javascript")},
-              but your code looks like {languageName(result.detected_language)}.
-              The analysis was run as {languageName(result.detected_language)}.
+              but your code looks like {languageName(mismatchLanguage)}.
+              The analysis was run as {languageName(mismatchLanguage)}.
             </p>
           </div>
           <button
             type="button"
             className="language-switch-button"
-            onClick={() => onSelectLanguage(result.detected_language!)}
+            onClick={() => onSelectLanguage(mismatchLanguage)}
           >
-            Switch to {languageName(result.detected_language)}
+            Switch to {languageName(mismatchLanguage)}
           </button>
         </div>
       )}
