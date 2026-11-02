@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from Backend.config import ANALYZE_RATE_LIMIT_PER_MINUTE, APP_NAME, APP_VERSION, FRONTEND_ORIGIN
 from Backend.schemas import AnalysisRequest, AnalysisResponse, HealthResponse
 from Backend.services.ai_service import AIServiceError, analyze_code
+from Backend.services.language_detection import detect_language
 from Backend.services.report_service import generate_markdown_report
 
 MAX_REQUEST_BODY_BYTES = 1_100_000
@@ -82,19 +83,33 @@ def health_check() -> HealthResponse:
 
 @app.post("/api/analyze", response_model=AnalysisResponse)
 def analyze(request: AnalysisRequest) -> AnalysisResponse:
+    detected_language = detect_language(request.code)
+    language_mismatch = (
+        detected_language is not None and detected_language != request.language
+    )
+    analysis_language = detected_language or request.language
+
     try:
-        return analyze_code(
-            code=request.code, language=request.language,
+        result = analyze_code(
+            code=request.code,
+            language=analysis_language,
             explanation_level=request.explanation_level,
             include_tests=request.include_tests,
         )
+        return result.model_copy(update={
+            "selected_language": request.language,
+            "detected_language": detected_language,
+            "language_mismatch": language_mismatch,
+        })
     except AIServiceError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @app.post("/api/report")
 def create_report(body: ReportRequest) -> dict[str, str]:
+    report_language = body.result.detected_language or body.request.language
     return {"report": generate_markdown_report(
-        result=body.result, language=body.request.language,
+        result=body.result,
+        language=report_language,
         explanation_level=body.request.explanation_level,
     )}

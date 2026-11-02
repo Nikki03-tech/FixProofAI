@@ -1,9 +1,17 @@
 import { AlertTriangle, CheckCircle2, Lightbulb, SearchCheck, ShieldAlert } from "lucide-react";
-import type { AnalysisResponse } from "../types";
+import type { AnalysisResponse, SupportedLanguage } from "../types";
 
-interface AnalysisPanelProps { result: AnalysisResponse; }
+interface AnalysisPanelProps {
+  result: AnalysisResponse;
+  onSelectLanguage: (language: SupportedLanguage) => void;
+}
 
-export default function AnalysisPanel({ result }: AnalysisPanelProps) {
+const languageName = (language: SupportedLanguage) =>
+  language === "python" ? "Python" : "JavaScript";
+
+export default function AnalysisPanel({ result, onSelectLanguage }: AnalysisPanelProps) {
+  const hasMismatch = result.language_mismatch && result.detected_language;
+
   return (
     <section className="panel analysis-panel">
       <div className="panel-heading">
@@ -14,6 +22,27 @@ export default function AnalysisPanel({ result }: AnalysisPanelProps) {
           {result.success ? "Analysis ready" : "Partial result"}
         </span>
       </div>
+
+      {hasMismatch && (
+        <div className="language-warning" role="alert">
+          <div className="language-warning-copy">
+            <strong>Language mismatch detected</strong>
+            <p>
+              You selected {languageName(result.selected_language ?? "javascript")},
+              but your code looks like {languageName(result.detected_language)}.
+              The analysis was run as {languageName(result.detected_language)}.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="language-switch-button"
+            onClick={() => onSelectLanguage(result.detected_language!)}
+          >
+            Switch to {languageName(result.detected_language)}
+          </button>
+        </div>
+      )}
+
       <div className="summary-card">
         <h3>Summary</h3><p>{result.summary}</p>
         <p><strong>Severity:</strong> {result.severity.toUpperCase()} · <strong>AI confidence:</strong> {result.confidence}%</p>
