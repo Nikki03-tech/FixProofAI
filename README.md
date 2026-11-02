@@ -6,11 +6,10 @@ FixProof AI reviews source code as text, explains likely issues and root causes,
 
 ## Live application
 
-- Frontend: https://fixproof-ai-frontend.onrender.com/
-- API health: https://fixproof-ai-api.onrender.com/health
-- Source code: https://github.com/Nikki03-tech/FixProofAI
+- **Main application:** https://fixproofai.onrender.com/
+- **Source code:** https://github.com/Nikki03-tech/FixProofAI
 
-The deployed URLs should be checked after each Render deployment. The health endpoint confirms that the API process responds; it does not validate Gemini credentials or make a Gemini request.
+The main public demo URL above is the one supplied by the project owner. A separate public API URL has not yet been confirmed, so do not use an assumed API hostname as a demo link. The FastAPI service exposes `/health` when deployed; confirm its actual Render URL in the Render dashboard.
 
 ## Features
 
@@ -21,7 +20,7 @@ The deployed URLs should be checked after each Render deployment. The health end
 - Suggested code fixes and test cases
 - Actionable verification checklist
 - Downloadable Markdown report
-- API health indicator in the frontend
+- API health indicator in the React frontend
 - Request validation, request-size guard, and per-instance analysis rate limiting
 
 ## Architecture
@@ -88,7 +87,7 @@ cd frontend
 npm install
 ```
 
-Create `frontend/.env`:
+Create `frontend/.env` and set `VITE_API_BASE_URL` to the actual backend URL:
 
 ```env
 VITE_API_BASE_URL=http://localhost:8000
@@ -141,12 +140,9 @@ Example analysis request:
 
 ## Deployment on Render
 
-The root `render.yaml` defines two services:
+The root `render.yaml` provides a two-service Blueprint configuration for a React static frontend and FastAPI backend. The project owner's current public demo link is `https://fixproofai.onrender.com/`; confirm the API service's actual hostname independently in Render before using it in `VITE_API_BASE_URL`.
 
-1. `fixproof-ai-api`: FastAPI service using `Backend/requirements.txt`, Uvicorn, and `/health`.
-2. `fixproof-ai-frontend`: Vite static site published from `frontend/dist`.
-
-Set `GEMINI_API_KEY` as a secret in the backend Render environment. Do not commit it or place it in a frontend `VITE_*` variable. Keep the frontend `VITE_API_BASE_URL` and backend `FRONTEND_ORIGIN` aligned with the actual public service URLs.
+Set `GEMINI_API_KEY` as a secret in the backend Render environment. Do not commit it or place it in a frontend `VITE_*` variable. The backend's `FRONTEND_ORIGIN` must match the deployed frontend's exact origin.
 
 ## Security and limitations
 

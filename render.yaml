@@ -13,7 +13,7 @@ services:
       - key: GEMINI_MODEL
         value: gemini-3.5-flash-lite
       - key: FRONTEND_ORIGIN
-        value: https://fixproof-ai-frontend.onrender.com
+        value: https://fixproofai.onrender.com
       - key: MAX_CODE_LENGTH
         value: "20000"
       - key: REQUEST_TIMEOUT
@@ -23,7 +23,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.12.8
 
-  # React + Vite frontend
+  # React + Vite frontend (separate static service)
   - type: web
     name: fixproof-ai-frontend
     runtime: static
