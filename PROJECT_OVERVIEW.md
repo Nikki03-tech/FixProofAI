@@ -1,5 +1,10 @@
 # FixProof AI — Project Overview
 
+## Live demo
+
+- Public application: https://fixproofai.onrender.com/
+- Source repository: https://github.com/Nikki03-tech/FixProofAI
+
 ## Current application
 
 FixProof AI is an AI-assisted debugging application for Python and JavaScript. Its AI provider is the Google Gemini API.
