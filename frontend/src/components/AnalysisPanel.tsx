@@ -1,18 +1,7 @@
 import { AlertTriangle, CheckCircle2, Lightbulb, SearchCheck, ShieldAlert } from "lucide-react";
-import type { AnalysisResponse, SupportedLanguage } from "../types";
-
-interface AnalysisPanelProps {
-  result: AnalysisResponse;
-  onSelectLanguage: (language: SupportedLanguage) => void;
-}
-
-const languageName = (language: SupportedLanguage) =>
-  language === "python" ? "Python" : "JavaScript";
-
-export default function AnalysisPanel({ result, onSelectLanguage }: AnalysisPanelProps) {
-  const mismatchLanguage =
-    result.language_mismatch === true ? result.detected_language ?? null : null;
-
+import type { AnalysisResponse } from "../types";
+interface AnalysisPanelProps { result: AnalysisResponse; }
+export default function AnalysisPanel({ result }: AnalysisPanelProps) {
   return (
     <section className="panel analysis-panel">
       <div className="panel-heading">
@@ -23,27 +12,6 @@ export default function AnalysisPanel({ result, onSelectLanguage }: AnalysisPane
           {result.success ? "Analysis ready" : "Partial result"}
         </span>
       </div>
-
-      {mismatchLanguage && (
-        <div className="language-warning" role="alert">
-          <div className="language-warning-copy">
-            <strong>Language mismatch detected</strong>
-            <p>
-              You selected {languageName(result.selected_language ?? "javascript")},
-              but your code looks like {languageName(mismatchLanguage)}.
-              The analysis was run as {languageName(mismatchLanguage)}.
-            </p>
-          </div>
-          <button
-            type="button"
-            className="language-switch-button"
-            onClick={() => onSelectLanguage(mismatchLanguage)}
-          >
-            Switch to {languageName(mismatchLanguage)}
-          </button>
-        </div>
-      )}
-
       <div className="summary-card">
         <h3>Summary</h3><p>{result.summary}</p>
         <p><strong>Severity:</strong> {result.severity.toUpperCase()} · <strong>AI confidence:</strong> {result.confidence}%</p>

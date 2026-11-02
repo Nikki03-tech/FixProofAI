@@ -9,36 +9,46 @@ FixProof AI reviews source code as text, explains likely issues and root causes,
 - **Main application:** https://fixproofai.onrender.com/
 - **Source code:** https://github.com/Nikki03-tech/FixProofAI
 
-The main public demo URL above is the one supplied by the project owner. A separate public API URL has not yet been confirmed, so do not use an assumed API hostname as a demo link. The FastAPI service exposes `/health` when deployed; confirm its actual Render URL in the Render dashboard.
-
 ## Features
 
 - Python and JavaScript source-code analysis
+- Language mismatch detection before AI analysis; mismatch stops the request until the user switches language
 - Beginner, intermediate, and advanced explanations
 - Potential issue list and likely root cause
 - Severity classification and AI confidence estimate
 - Suggested code fixes and test cases
 - Actionable verification checklist
 - Downloadable Markdown report
-- API health indicator in the React frontend
+- API health indicator
 - Request validation, request-size guard, and per-instance analysis rate limiting
+- Black-and-gold interface
 
-## Architecture
+## Architecture documentation
+
+Professional design documents are available in the `docs/` folder:
+
+- [High-Level Design (HLD)](docs/HLD.md) — system context, architecture, components, major flows, deployment, security boundaries, and limitations.
+- [Low-Level Design (LLD)](docs/LLD.md) — module responsibilities, language-detection algorithm, API contracts, frontend state machine, error handling, configuration, and test strategy.
+
+The architecture and sequence diagrams use Mermaid and render directly on GitHub.
+
+## Architecture overview
 
 ```mermaid
 flowchart LR
-  U[Developer] --> F[React + TypeScript UI]
-  F -->|JSON request| A[FastAPI API]
-  A --> V[Pydantic validation]
-  V --> S[Gemini service]
-  S --> G[Google Gemini API]
-  G --> S
-  S --> R[Structured analysis]
-  R --> F
-  F --> D[Markdown report download]
+  DEV[Developer] --> UI[React and TypeScript UI]
+  UI --> API[FastAPI backend]
+  API --> GATE[Language mismatch gate]
+  GATE -->|Mismatch HTTP 409| UI
+  GATE -->|Match or ambiguous| GEMINI[Gemini service]
+  GEMINI --> MODEL[Google Gemini API]
+  MODEL --> GEMINI
+  GEMINI --> API
+  API --> UI
+  UI --> REPORT[Markdown report download]
 ```
 
-### Stack
+## Technology stack
 
 | Layer | Technology |
 |---|---|
@@ -48,6 +58,15 @@ flowchart LR
 | HTTP client | HTTPX |
 | Tests | Pytest, FastAPI TestClient, GitHub Actions |
 | Hosting | Render |
+
+## Language mismatch workflow
+
+1. The user selects a programming language, pastes code, and selects Analyze.
+2. The backend checks clear language signals before invoking Gemini.
+3. If the language differs from the selection, the API returns HTTP 409 with `detail.code = LANGUAGE_MISMATCH`. No Gemini request is made.
+4. The frontend shows only the mismatch panel. Findings and report panels remain hidden.
+5. The user selects **Switch to [detected language] and analyze**. The frontend updates the selector and sends a fresh request.
+6. If a snippet is too short or ambiguous to classify, the selected language is used.
 
 ## Local setup
 
@@ -72,7 +91,7 @@ REQUEST_TIMEOUT=90
 ANALYZE_RATE_LIMIT_PER_MINUTE=5
 ```
 
-Run the API from the repository root:
+Start FastAPI from the repository root:
 
 ```bash
 uvicorn Backend.main:app --reload --host 0.0.0.0 --port 8000
@@ -87,19 +106,19 @@ cd frontend
 npm install
 ```
 
-Create `frontend/.env` and set `VITE_API_BASE_URL` to the actual backend URL:
+Create `frontend/.env`:
 
 ```env
 VITE_API_BASE_URL=http://localhost:8000
 ```
 
-Start the frontend:
+Start Vite:
 
 ```bash
 npm run dev
 ```
 
-Open the local Vite URL, normally `http://localhost:5173`.
+Open the local URL printed by Vite (normally `http://localhost:5173`).
 
 ## Tests and build
 
@@ -119,45 +138,40 @@ npm run build
 
 GitHub Actions runs backend tests and the frontend production build on pushes and pull requests to `main`.
 
-## API
+## API endpoints
 
 | Method | Endpoint | Purpose |
 |---|---|---|
 | GET | `/health` | API process health |
-| POST | `/api/analyze` | Gemini-powered source analysis |
-| POST | `/api/report` | Generate Markdown report |
+| POST | `/api/analyze` | Language gate followed by Gemini analysis |
+| POST | `/api/report` | Generate Markdown from a successful analysis |
 
-Example analysis request:
+A mismatch returns HTTP 409 with `detail.code = LANGUAGE_MISMATCH`; it is a control response, not an analysis result.
 
-```json
-{
-  "code": "def average(numbers): return sum(numbers) / len(number)",
-  "language": "python",
-  "explanation_level": "beginner",
-  "include_tests": true
-}
-```
+## Render deployment
 
-## Deployment on Render
+The root `render.yaml` contains the backend and frontend service definitions. The project owner's public application URL is:
 
-The root `render.yaml` provides a two-service Blueprint configuration for a React static frontend and FastAPI backend. The project owner's current public demo link is `https://fixproofai.onrender.com/`; confirm the API service's actual hostname independently in Render before using it in `VITE_API_BASE_URL`.
+**https://fixproofai.onrender.com/**
 
-Set `GEMINI_API_KEY` as a secret in the backend Render environment. Do not commit it or place it in a frontend `VITE_*` variable. The backend's `FRONTEND_ORIGIN` must match the deployed frontend's exact origin.
+Set `GEMINI_API_KEY` as a secret in the backend Render environment. Never commit it or put it in a frontend `VITE_*` variable. Confirm the actual backend service URL in the Render dashboard and set the frontend's `VITE_API_BASE_URL` to that exact address. The backend's `FRONTEND_ORIGIN` must match the frontend's public origin.
+
+Deploy the frontend and backend together when publishing changes to the HTTP 409 mismatch contract.
 
 ## Security and limitations
 
 - The backend does not execute submitted source code.
 - Analysis requests have a configurable code-character limit.
-- API analysis requests have a per-process fixed-window rate limit (default: 5 per minute).
-- Request bodies with a declared Content-Length above the configured guard are rejected.
-- The in-memory limiter is intended as a basic single-instance safeguard. Multiple instances require a shared rate-limit store such as Redis.
-- A Content-Length guard is not a substitute for edge/proxy request-size enforcement.
-- Never submit API keys, passwords, tokens, or private customer data.
-- Gemini output, severity, and confidence are AI-generated estimates, not guarantees. Review suggestions and run tests in a safe environment before applying changes.
+- Analysis requests have a per-process fixed-window rate limit (default: 5 per minute).
+- A Content-Length guard rejects requests declaring a body above its limit; proxy/edge enforcement is also recommended.
+- The in-memory rate limiter is a basic single-instance safeguard; multiple instances need a shared store such as Redis.
+- Language detection is heuristic and returns unknown for ambiguous snippets.
+- Never submit API keys, passwords, access tokens, or private customer data.
+- Gemini findings, severity, and confidence are estimates, not guarantees. Review suggestions and run tests before using changes.
 
 ## Alternative interface
 
-A Streamlit interface is also available from the root-level `app.py`. Configure the same Gemini environment variables, install root `requirements.txt`, and run:
+A Streamlit interface is available from the root-level `app.py`. Configure the same Gemini environment variables, install root `requirements.txt`, and run:
 
 ```bash
 streamlit run app.py

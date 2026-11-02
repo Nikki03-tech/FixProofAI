@@ -1,16 +1,13 @@
 import { useEffect, useState } from "react";
-import {
-  ArrowDown, Code2, Github, RotateCcw, ShieldCheck, Sparkles,
-} from "lucide-react";
+import { ArrowDown, Code2, Github, RotateCcw, ShieldCheck, Sparkles } from "lucide-react";
 import Header from "./components/Header";
 import CodeEditor from "./components/CodeEditor";
 import LoadingState from "./components/LoadingState";
 import AnalysisPanel from "./components/AnalysisPanel";
+import LanguageMismatchPanel from "./components/LanguageMismatchPanel";
 import ReportPanel from "./components/ReportPanel";
-import { analyzeCode, checkHealth, downloadReport } from "./services/api";
-import type {
-  AnalysisRequest, AnalysisResponse, ExplanationLevel, SupportedLanguage,
-} from "./types";
+import { analyzeCode, checkHealth, downloadReport, LanguageMismatchError } from "./services/api";
+import type { AnalysisRequest, AnalysisResponse, ExplanationLevel, SupportedLanguage } from "./types";
 
 const INITIAL_CODE = `def calculate_average(numbers):
     total = sum(numbers)
@@ -26,6 +23,7 @@ export default function App() {
   const [includeTests, setIncludeTests] = useState(true);
   const [result, setResult] = useState<AnalysisResponse | null>(null);
   const [lastRequest, setLastRequest] = useState<AnalysisRequest | null>(null);
+  const [languageMismatch, setLanguageMismatch] = useState<LanguageMismatchError | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [apiStatus, setApiStatus] = useState<"checking" | "online" | "offline">("checking");
@@ -48,7 +46,17 @@ export default function App() {
     };
   }, []);
 
-  async function handleAnalyze() {
+  function handleCodeChange(nextCode: string) {
+    setCode(nextCode);
+    setLanguageMismatch(null);
+  }
+
+  function handleLanguageChange(nextLanguage: SupportedLanguage) {
+    setLanguage(nextLanguage);
+    setLanguageMismatch(null);
+  }
+
+  async function handleAnalyze(languageToUse: SupportedLanguage = language) {
     if (!code.trim()) {
       setError("Please enter some code to analyze.");
       return;
@@ -58,10 +66,14 @@ export default function App() {
       return;
     }
     const payload: AnalysisRequest = {
-      code, language, explanation_level: explanationLevel, include_tests: includeTests,
+      code,
+      language: languageToUse,
+      explanation_level: explanationLevel,
+      include_tests: includeTests,
     };
     setIsLoading(true);
     setError("");
+    setLanguageMismatch(null);
     setResult(null);
     setLastRequest(null);
     try {
@@ -69,10 +81,21 @@ export default function App() {
       setResult(analysis);
       setLastRequest(payload);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong while analyzing your code.");
+      if (err instanceof LanguageMismatchError) {
+        setLanguageMismatch(err);
+      } else {
+        setError(err instanceof Error ? err.message : "Something went wrong while analyzing your code.");
+      }
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function handleSwitchAndAnalyze() {
+    if (!languageMismatch) return;
+    const correctedLanguage = languageMismatch.detectedLanguage;
+    setLanguage(correctedLanguage);
+    await handleAnalyze(correctedLanguage);
   }
 
   async function handleDownload(): Promise<string> {
@@ -84,6 +107,7 @@ export default function App() {
     setCode("");
     setResult(null);
     setLastRequest(null);
+    setLanguageMismatch(null);
     setError("");
   }
 
@@ -113,24 +137,37 @@ export default function App() {
 
         <div className="workspace-grid">
           <CodeEditor
-            code={code} onCodeChange={setCode} language={language} onLanguageChange={setLanguage}
-            explanationLevel={explanationLevel} onExplanationLevelChange={setExplanationLevel}
-            includeTests={includeTests} onIncludeTestsChange={setIncludeTests}
-            onAnalyze={handleAnalyze} isLoading={isLoading}
+            code={code}
+            onCodeChange={handleCodeChange}
+            language={language}
+            onLanguageChange={handleLanguageChange}
+            explanationLevel={explanationLevel}
+            onExplanationLevelChange={setExplanationLevel}
+            includeTests={includeTests}
+            onIncludeTestsChange={setIncludeTests}
+            onAnalyze={() => handleAnalyze()}
+            isLoading={isLoading}
           />
           <section className="results-column" aria-live="polite">
-            {isLoading ? <LoadingState /> : error ? (
+            {isLoading ? <LoadingState /> : languageMismatch ? (
+              <LanguageMismatchPanel
+                selectedLanguage={languageMismatch.selectedLanguage}
+                detectedLanguage={languageMismatch.detectedLanguage}
+                message={languageMismatch.message}
+                onSwitchAndAnalyze={handleSwitchAndAnalyze}
+              />
+            ) : error ? (
               <div className="panel error-panel" role="alert">
                 <div className="error-symbol">!</div>
                 <h2>We couldn't complete the analysis</h2>
                 <p>{error}</p>
-                <button type="button" className="secondary-button" onClick={handleAnalyze}>
+                <button type="button" className="secondary-button" onClick={() => handleAnalyze()}>
                   <RotateCcw size={16} />Try again
                 </button>
               </div>
             ) : result ? (
               <>
-                <AnalysisPanel result={result} onSelectLanguage={setLanguage} />
+                <AnalysisPanel result={result} />
                 <ReportPanel result={result} onDownload={handleDownload} />
               </>
             ) : (
